@@ -77,6 +77,4 @@ This is one random holdout split, so results can vary with the seed. For a stron
 
 `analyze.R` writes `dataset_summary.csv`, `rating_distribution.csv`, `movie_popularity.csv`, `movie_genre_encoding.csv`, `genre_counts.csv`, `favorite_counts_by_user.csv`, `rating_preparation_summary.csv`, and `normalized_rating_sample.csv`, plus PNG charts and sampled similarity matrices. Recommendation and evaluation files are created by the other scripts. These generated outputs are reproducible and intentionally excluded from version control.
 
-## Differences from the tutorial code
 
-The original tutorial hard-codes matrix dimensions and splits whole users into training and test data, which makes it awkward to recommend for a chosen user. This implementation derives dimensions from the CSVs, keeps ratings sparse, limits visualization to small samples, and fits the model on available users so it can produce direct user recommendations. `evaluate.R` provides a first offline benchmark; a single holdout split is not a definitive accuracy claim.
