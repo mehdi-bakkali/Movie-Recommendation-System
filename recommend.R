@@ -1,3 +1,5 @@
+# Item based movie recommendations, following the DataFlair tutorial.
+# Run from the project folder with: Rscript recommend.R [userId] [number]
 
 required_packages <- c("recommenderlab", "data.table", "Matrix")
 missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
@@ -61,6 +63,17 @@ ratings <- ratings[!is.na(userId) & !is.na(movieId) & !is.na(rating)]
 if (nrow(ratings) == 0L) stop("No usable ratings remain after matching movies.", call. = FALSE)
 ratings <- ratings[, .(rating = mean(as.numeric(rating))), by = .(userId, movieId)]
 
+# Bound the training catalog dimensions for recommenderlab's internal operations.
+max_model_users <- 10000L
+user_counts <- ratings[, .(rating_count = .N), by = userId]
+setorder(user_counts, -rating_count, userId)
+retained_users <- head(as.character(user_counts$userId), max_model_users)
+if (!is.null(requested_user) && requested_user %in% as.character(user_counts$userId) &&
+    !as.character(requested_user) %in% retained_users) {
+  retained_users[[length(retained_users)]] <- as.character(requested_user)
+}
+ratings <- ratings[as.character(userId) %in% retained_users]
+
 user_ids <- sort(unique(as.character(ratings$userId)))
 movie_ids <- sort(unique(as.character(ratings$movieId)))
 sparse_values <- Matrix::sparseMatrix(
@@ -75,7 +88,7 @@ rating_matrix <- new("realRatingMatrix", data = sparse_values)
 # Filter sparse users and rare movies before fitting item similarities.
 min_user_ratings <- min(5L, max(1L, floor(ncol(rating_matrix) * 0.01)))
 min_movie_ratings <- 50L
-max_model_items <- 5000L
+max_model_items <- 3000L
 movie_counts <- colCounts(rating_matrix)
 eligible_movies <- which(movie_counts >= min_movie_ratings)
 if (length(eligible_movies) > max_model_items) {

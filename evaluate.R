@@ -34,6 +34,14 @@ ratings <- ratings[!is.na(userId) & !is.na(movieId) & !is.na(rating),
                    .(rating = mean(as.numeric(rating))), by = .(userId, movieId)]
 if (nrow(ratings) == 0L) stop("No usable ratings found.", call. = FALSE)
 
+# Evaluate a seeded user sample so the model stays within typical laptop memory.
+max_model_users <- 10000L
+eligible_users <- ratings[, .N, by = userId][N > 5L, userId]
+if (length(eligible_users) > max_model_users) {
+  eligible_users <- sample(eligible_users, max_model_users)
+}
+ratings <- ratings[userId %in% eligible_users]
+
 # Hold out 20% of each eligible user's ratings while retaining a known profile.
 holdout_fraction <- 0.20
 minimum_known_ratings <- 5L
@@ -61,7 +69,7 @@ train_matrix <- new("realRatingMatrix", data = sparse_values)
 
 # Remove rare items before building the item-item similarity model.
 min_movie_ratings <- 50L
-max_model_items <- 5000L
+max_model_items <- 3000L
 movie_counts <- colCounts(train_matrix)
 eligible_movies <- which(movie_counts >= min_movie_ratings)
 if (length(eligible_movies) > max_model_items) {

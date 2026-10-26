@@ -1,6 +1,6 @@
 # Movie recommendation system in R
 
-This project follows DataFlair's item based collaborative filtering tutorial. It uses movie ratings to find movies with similar rating patterns, then recommends movies a selected user has not rated.
+This project adapts [DataFlair's R movie recommendation tutorial](https://data-flair.training/blogs/data-science-r-movie-recommendation-system/) into a reproducible, memory-conscious workflow for a larger MovieLens-format dataset. It explores the ratings and genres, builds an item based collaborative filtering model, recommends unseen movies, and compares recommendation quality with a popularity baseline.
 
 ## Step 1: Install R and packages
 
@@ -19,11 +19,23 @@ Use the [27M Movie Ratings dataset on Kaggle](https://www.kaggle.com/datasets/pa
 - Simple MovieLens layout: `movies.csv` with `movieId,title` (and optionally `genres`), plus `ratings.csv` with `userId,movieId,rating`.
 - Full Movies Dataset layout: `ratings.csv`, `movies_metadata.csv` with `id,title` (and optionally `genres`), and `links.csv` with `movieId,tmdbId`. The recommender joins the metadata through `links.csv`.
 
-Keep the supplied file names and columns. The Kaggle dataset is much larger than the tutorial's sample, so the scripts build a sparse ratings matrix and only keep movies with at least 50 training ratings when fitting item similarities. The underlying MovieLens data format uses `userId`, `movieId`, `rating`, and `timestamp` columns in `ratings.csv`; the timestamp is not needed by this project. [MovieLens file format](https://files.grouplens.org/datasets/movielens/ml-latest-small-README.html)
+Keep the supplied file names and columns. The Kaggle dataset is much larger than the tutorial's sample, so the scripts build a sparse ratings matrix, require at least 50 training ratings per movie, and limit model fitting to 10,000 users and the 3,000 most-rated movies. This bounds the memory used by recommenderlab's internal calculations. The recommendation run keeps the most active users and always includes a requested user when their ID exists in the ratings. The evaluation run selects a seeded sample of up to 10,000 eligible users. The underlying MovieLens data format uses `userId`, `movieId`, `rating`, and `timestamp` columns in `ratings.csv`; the timestamp is not needed by this project. [MovieLens file format](https://files.grouplens.org/datasets/movielens/ml-latest-small-README.html)
 
 Do not commit the large raw CSV files to a public portfolio repository. Include the Kaggle source link and follow the license terms shown on its dataset page.
 
-## Step 3: Run the recommender
+## Step 3: Explore and prepare the data
+
+Run the analysis script first:
+
+```sh
+Rscript analyze.R
+```
+
+It creates a dataset summary, rating distribution, most-rated movie table, multi-hot movie genre table, per-user favorite counts, and a centered-rating sample. The script also saves rating and cosine-similarity heatmaps for a small sample of active users and popular movies. Movies with multiple genres have a 1 in each matching genre column. Ratings are centered by each user's mean to show differences from their typical score. Ratings of 4 or 5 are counted as favorites, matching the evaluation threshold.
+
+Analysis files and charts are written under `outputs/`, which is ignored by Git. The script limits heatmaps and similarity diagnostics to small samples, and caps the normalization sample at 500,000 ratings so the large source files do not require a dense full-catalog matrix.
+
+## Step 4: Run the recommender
 
 From the project folder:
 
@@ -39,7 +51,7 @@ Rscript recommend.R 1 10
 
 The program prints recommendations and saves a CSV in `outputs/`. If user 1 is not present after filtering, choose a `userId` from `data/ratings.csv` that has rated several movies.
 
-## Evaluate recommendation quality
+## Step 5: Evaluate recommendation quality
 
 Run a reproducible comparison of item based collaborative filtering (IBCF) against a popularity baseline:
 
@@ -47,7 +59,7 @@ Run a reproducible comparison of item based collaborative filtering (IBCF) again
 Rscript evaluate.R
 ```
 
-The default run uses seed `20261025` and evaluates the top 10. For each user with more than five ratings, it holds out 20% of that user's ratings while keeping at least five ratings as the known profile. Held-out ratings of 4 or 5 count as favorites. Movies already rated by that user are excluded from recommendations. The popularity baseline ranks movies by their number of training ratings. Movies with fewer than 50 training ratings are excluded from the evaluation catalog to keep item similarity computation manageable on the larger data.
+The default run uses seed `20261025` and evaluates the top 10. It samples up to 10,000 eligible users. For each user with more than five ratings, it holds out 20% of that user's ratings while keeping at least five ratings as the known profile. Held-out ratings of 4 or 5 count as favorites. Movies already rated by that user are excluded from recommendations. The popularity baseline ranks movies by their number of training ratings. Movies with fewer than 50 training ratings are excluded, and the evaluation catalog is limited to the 3,000 most-rated movies.
 
 The summary uses macro averages, so each evaluated user contributes equally. `Precision@10` is hits divided by 10. `Recall@10` is hits divided by the number of that user's held-out favorites that were available in the training catalog. Results are written to `outputs/evaluation_summary.csv` and `outputs/evaluation_by_user.csv`. You can change the seed and recommendation count, for example `Rscript evaluate.R 42 20`.
 
@@ -55,10 +67,16 @@ This is one random holdout split, so results can vary with the seed. For a stron
 
 ## How the project works
 
-1. Read the movie metadata and ratings, then match ratings to known movies.
-2. Convert the ratings table into a sparse user-by-movie matrix.
-3. Filter very sparse users and movies so similarity estimates have useful data.
-4. Fit an item based collaborative filtering (IBCF) model with cosine similarity.
-5. Recommend unrated movies for the selected user and translate movie IDs to titles.
+1. `analyze.R` summarizes ratings and popularity, creates multi-hot genre features, centers a bounded ratings sample by user, and visualizes sampled user/item similarities.
+2. `recommend.R` reads the movie metadata and ratings, then matches ratings to known movies.
+3. It converts the ratings table into a sparse user-by-movie matrix and filters very sparse users and movies.
+4. It fits an item based collaborative filtering (IBCF) model and recommends unrated movies for the selected user, translating movie IDs to titles.
+5. `evaluate.R` uses a within-user holdout to compare IBCF against most popular movies on Precision@K and Recall@K.
 
+## Generated analysis files
 
+`analyze.R` writes `dataset_summary.csv`, `rating_distribution.csv`, `movie_popularity.csv`, `movie_genre_encoding.csv`, `genre_counts.csv`, `favorite_counts_by_user.csv`, `rating_preparation_summary.csv`, and `normalized_rating_sample.csv`, plus PNG charts and sampled similarity matrices. Recommendation and evaluation files are created by the other scripts. These generated outputs are reproducible and intentionally excluded from version control.
+
+## Differences from the tutorial code
+
+The original tutorial hard-codes matrix dimensions and splits whole users into training and test data, which makes it awkward to recommend for a chosen user. This implementation derives dimensions from the CSVs, keeps ratings sparse, limits visualization to small samples, and fits the model on available users so it can produce direct user recommendations. `evaluate.R` provides a first offline benchmark; a single holdout split is not a definitive accuracy claim.

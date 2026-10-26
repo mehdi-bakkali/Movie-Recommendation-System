@@ -1,6 +1,11 @@
-.DS_Store
+# Keep the large source dataset out of GitHub.
 data/
+
+# Generated recommendations and evaluation outputs.
 outputs/
+
+# Local R and macOS files.
 .Rhistory
 .RData
 .Rproj.user/
+.DS_Store
