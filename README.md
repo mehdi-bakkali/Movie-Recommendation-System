@@ -31,7 +31,7 @@ Run the analysis script first:
 Rscript analyze.R
 ```
 
-It creates a dataset summary, rating distribution, most-rated movie table, multi-hot movie genre table, per-user favorite counts, and a centered-rating sample. The script also saves rating and cosine-similarity heatmaps for a small sample of active users and popular movies. Movies with multiple genres have a 1 in each matching genre column. Ratings are centered by each user's mean to show differences from their typical score. Ratings of 4 or 5 are counted as favorites, matching the evaluation threshold.
+It creates a dataset summary, rating distribution, most-rated movie table, multi-hot movie genre table, per-user favorite counts, and a centered-rating sample. It also binarizes sampled ratings into favorite (4 or 5) and not-favorite values, and saves rating, normalized-rating, and cosine-similarity charts for a small sample of active users and popular movies. Movies with multiple genres have a 1 in each matching genre column. Ratings are centered by each user's mean to show differences from their typical score. Ratings of 4 or 5 are counted as favorites, matching the evaluation threshold.
 
 Analysis files and charts are written under `outputs/`, which is ignored by Git. The script limits heatmaps and similarity diagnostics to small samples, and caps the normalization sample at 500,000 ratings so the large source files do not require a dense full-catalog matrix.
 

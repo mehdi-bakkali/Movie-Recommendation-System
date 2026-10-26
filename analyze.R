@@ -103,7 +103,6 @@ genre_rows <- lapply(seq_len(nrow(movies)), function(i) {
 genre_long <- rbindlist(genre_rows, use.names = TRUE)
 if (nrow(genre_long)) {
   genre_long <- unique(genre_long)
-  genre_levels <- sort(unique(genre_long$genre))
   genre_encoding <- dcast(genre_long[, value := 1L], movieId ~ genre,
                           value.var = "value", fill = 0L)
   fwrite(genre_encoding, file.path(output_dir, "movie_genre_encoding.csv"))
@@ -115,7 +114,6 @@ if (nrow(genre_long)) {
           col = "darkseagreen", ylab = "Movies", main = "Movie counts by genre")
   dev.off()
 } else {
-  genre_levels <- character()
   message("No genre values found; skipped genre encoding and genre chart.")
 }
 
@@ -125,16 +123,29 @@ normalization_sample_size <- min(nrow(ratings), 500000L)
 normalization_sample <- ratings[sample.int(nrow(ratings), normalization_sample_size)]
 normalization_sample[, user_mean := mean(rating), by = userId]
 normalization_sample[, normalized_rating := rating - user_mean]
+normalization_sample[, favorite_binary := as.integer(rating >= 4)]
 normalized_summary <- normalization_sample[, .(
   sampled_ratings = .N,
   mean_normalized_rating = mean(normalized_rating),
   sd_normalized_rating = sd(normalized_rating),
   favorite_threshold = 4L,
-  sampled_favorites = sum(rating >= 4)
+  sampled_favorites = sum(favorite_binary),
+  sampled_non_favorites = sum(favorite_binary == 0L)
 )]
 fwrite(normalized_summary, file.path(output_dir, "rating_preparation_summary.csv"))
-fwrite(normalization_sample[, .(rating, normalized_rating)],
+fwrite(normalization_sample[, .(userId, movieId, rating, normalized_rating, favorite_binary)],
        file.path(output_dir, "normalized_rating_sample.csv"))
+png(file.path(output_dir, "normalized_rating_distribution.png"), width = 1000, height = 650)
+hist(normalization_sample$normalized_rating, breaks = 30, col = "steelblue",
+     xlab = "Rating minus user's average", main = "Distribution of centered ratings")
+dev.off()
+binary_counts <- c(sum(normalization_sample$favorite_binary == 0L),
+                   sum(normalization_sample$favorite_binary == 1L))
+png(file.path(output_dir, "favorite_binary_counts.png"), width = 900, height = 600)
+barplot(binary_counts, names.arg = c("Not favorite (< 4)", "Favorite (>= 4)"),
+        col = c("grey70", "darkseagreen"), ylab = "Sampled ratings",
+        main = "Binarized ratings in the analysis sample")
+dev.off()
 favorite_counts <- ratings[, .(
   rated_movies = .N,
   favorites = sum(rating >= 4),
